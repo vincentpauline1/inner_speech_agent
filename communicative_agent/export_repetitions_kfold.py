@@ -1,111 +1,124 @@
-from tqdm import tqdm  # Progress bar for loops
-from communicative_agent import CommunicativeAgent  # Import the communicative agent model
-from lib.dataset_wrapper import Dataset  # Dataset wrapper for handling data
-from lib import utils  # Utility functions
-from scipy.io import wavfile  # For saving generated audio files
-import numpy as np  # Numerical operations
-from external import lpcynet  # LPCNet for speech synthesis
+"""
+Script for exporting speech repetitions from trained CommunicativeAgent models using k-fold cross validation.
 
-# Define datasets to be used in training/testing
+This script loads trained models and generates repetitions of speech sequences in multiple formats:
+- Articulatory trajectories (.bin files)
+- Cepstral features (.bin files) 
+- Synthesized audio (.wav files)
+
+The models were trained with different configurations:
+- Multiple dataset combinations
+- K-fold cross validation splits
+- Various jerk loss regularization weights
+
+The exported repetitions can be used for analysis and evaluation of model performance.
+"""
+
+from tqdm import tqdm
+from communicative_agent import CommunicativeAgent
+from lib.dataset_wrapper import Dataset
+from lib import utils
+from scipy.io import wavfile
+import numpy as np
+from external import lpcynet
+
+# Dataset combinations to evaluate
 DATASETS = [
-    ["pb2007"],  # Single dataset case
-    ["gb2016", "th2016"],  # Multiple datasets case
+    ["pb2007"],  # Single speaker dataset
+    ["gb2016", "th2016"],  # Multi-speaker datasets
 ]
 
 NB_FOLDS = 5  # Number of cross-validation folds
 
-# List of jerk loss weight values used during training
+# Jerk loss weights used during training to regularize articulator movements
 JERK_LOSS_WEIGHTS = [
     0,     # No jerk loss
-    0.15,  # Jerk loss applied
+    0.15,  
 ]
 
 def export_agent_repetitions(agent, agent_name, datasets_name, datasplits):
     """
-    Generates and exports repeated speech samples from the agent.
+    Generate and export speech repetitions from a trained agent in multiple formats.
+    
+    For each test sequence, exports:
+    1. Estimated articulatory trajectories (.bin)
+    2. Cepstral features of repeated speech (.bin)
+    3. Synthesized audio waveforms (.wav)
     
     Args:
-        agent (CommunicativeAgent): The agent performing speech repetitions.
-        agent_name (str): Identifier for the agent.
-        datasets_name (list): Names of the datasets used.
-        datasplits (dict): Data splits (training, validation, test).
+        agent (CommunicativeAgent): Trained agent model to generate repetitions
+        agent_name (str): Identifier for the agent (used in output paths)
+        datasets_name (list): Names of datasets to process
+        datasplits (dict): Train/val/test splits for each dataset
     """
     for dataset_name in datasets_name:
-        print("%s repeats %s" % (agent_name, dataset_name))
+        print(f" {agent_name} repeats {dataset_name}")
         
-        # Load dataset
+        # Load dataset and extract features
         dataset = Dataset(dataset_name)
-        
-        # Extract required sound data from dataset
         sound_type = agent.sound_quantizer.config["dataset"]["data_types"]
         items_sound = dataset.get_items_data(sound_type)
-        items_source = dataset.get_items_data("source")
+        items_source = dataset.get_items_data("source")  # Source features for synthesis
 
-        # Define export directories for different representations of repetitions
-        repetition_art_export_dir = "./datasets/%s/kfold_art_%s" % (dataset_name, agent_name)
-        repetition_cepstrum_export_dir = "./datasets/%s/kfold_cepstrum_%s" % (dataset_name, agent_name)
-        repetition_wav_export_dir = "./datasets/%s/kfold_wav_%s" % (dataset_name, agent_name)
+        # Setup export directories for different feature types
+        base_path = f"./datasets/{dataset_name}/kfold_{agent_name}"
+        export_dirs = {
+            "art": f"{base_path}_art",
+            "cepstrum": f"{base_path}_cepstrum", 
+            "wav": f"{base_path}_wav"
+        }
+        for dir_path in export_dirs.values():
+            utils.mkdir(dir_path)
 
-        # Create directories if they don't exist
-        utils.mkdir(repetition_art_export_dir)
-        utils.mkdir(repetition_cepstrum_export_dir)
-        utils.mkdir(repetition_wav_export_dir)
-
-        # Get test samples from the dataset split
+        # Process test sequences from this dataset's split
         test_items = datasplits[dataset_name][2]
-
-        # Process each test sample
-        for item_name in tqdm(test_items):  # Show progress bar for processing
-            item_sound = items_sound[item_name]  # Retrieve original sound sample
+        for item_name in tqdm(test_items, desc="Processing sequences"):
+            # Generate repetition using agent
+            repetition = agent.repeat(items_sound[item_name])
             
-            # Generate repetition from the agent
-            repetition = agent.repeat(item_sound)
-
-            # Export estimated articulatory parameters
+            # Export articulatory trajectories
             repetition_art = repetition["art_estimated"]
-            repetition_art_file_path = "%s/%s.bin" % (repetition_art_export_dir, item_name)
-            repetition_art.tofile(repetition_art_file_path)
+            repetition_art.tofile(f"{export_dirs['art']}/{item_name}.bin")
 
-            # Export cepstral representation of the repeated sound
+            # Export cepstral features
             repetition_cepstrum = repetition["sound_repeated"]
-            repetition_cepstrum_file_path = "%s/%s.bin" % (repetition_cepstrum_export_dir, item_name)
-            repetition_cepstrum.tofile(repetition_cepstrum_file_path)
+            repetition_cepstrum.tofile(f"{export_dirs['cepstrum']}/{item_name}.bin")
 
-            # Prepare input for speech synthesis
+            # Synthesize and export audio using LPCNet
             item_source = items_source[item_name]
             repetition_lpcnet_features = np.concatenate((repetition_cepstrum, item_source), axis=1)
             repetition_lpcnet_features = dataset.cut_item_silences(item_name, repetition_lpcnet_features)
-
-            # Synthesize waveform using LPCNet
+            
             repetition_wav = lpcynet.synthesize_frames(repetition_lpcnet_features)
-            repetition_wav_file_path = "%s/%s.wav" % (repetition_wav_export_dir, item_name)
-            wavfile.write(repetition_wav_file_path, 16000, repetition_wav)  # Save audio file
+            wavfile.write(f"{export_dirs['wav']}/{item_name}.wav", 16000, repetition_wav)
 
 def main():
     """
-    Main function to iterate over datasets, folds, and jerk loss weights,
-    loading the corresponding agent and exporting its repeated speech samples.
+    Main execution function that:
+    1. Iterates through dataset combinations
+    2. Loads models trained with different configurations:
+        - K-fold splits
+        - Jerk loss weights
+    3. Exports repetitions for each model
     """
     for datasets_name in DATASETS:
-        datasets_key = ",".join(datasets_name)  # Create a key representing the dataset combination
+        datasets_key = ",".join(datasets_name)
+        
+        # Process each fold and jerk weight configuration
+        for i_fold in range(NB_FOLDS):
+            for jerk_loss_weight in JERK_LOSS_WEIGHTS:
+                # Load trained model
+                model_path = f"out/communicative_agent/kfold-{datasets_key}-jerk={jerk_loss_weight}-{i_fold}"
+                agent = CommunicativeAgent.reload(model_path)
+                
+                # Export repetitions using consistent naming
+                agent_name = f"{datasets_key}-jerk={jerk_loss_weight}"
+                export_agent_repetitions(
+                    agent,
+                    agent_name, 
+                    datasets_name,
+                    agent.sound_quantizer.datasplits
+                )
 
-        for i_fold in range(NB_FOLDS):  # Iterate through cross-validation folds
-            for jerk_loss_weight in JERK_LOSS_WEIGHTS:  # Iterate through different jerk loss weight settings
-                # Define the path where the agent's model is stored
-                save_path = "out/communicative_agent/kfold-%s-jerk=%s-%s" % (datasets_key, jerk_loss_weight, i_fold)
-                
-                # Reload the trained agent from storage
-                agent = CommunicativeAgent.reload(save_path)
-                
-                # Retrieve dataset splits associated with the agent
-                agent_datasplits = agent.sound_quantizer.datasplits
-                
-                # Construct agent identifier based on dataset and jerk weight
-                agent_name = "%s-jerk=%s" % (datasets_key, jerk_loss_weight)
-                
-                # Export the agent's speech repetitions
-                export_agent_repetitions(agent, agent_name, datasets_name, agent_datasplits)
-
-# Entry point for script execution
 if __name__ == "__main__":
     main()
