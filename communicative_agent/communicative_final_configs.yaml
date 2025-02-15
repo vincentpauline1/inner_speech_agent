@@ -11,9 +11,9 @@ pb2007:
       dropout_p: 0.17
       bidirectional: true
   synthesizer:
-    name: ea587b76c95fecef01cfd16c7f5f289d-3
+    name: ea587b76c95fecef01cfd16c7f5f289d-0
   sound_quantizer:
-    name: f50650bb40e1346ed24011c2e41b7153-4
+    name: f50650bb40e1346ed24011c2e41b7153-0
   training:
     inverse_model_learning_rate: 0.0017
     direct_model_learning_rate: 0.002
@@ -30,9 +30,9 @@ pb2007-synth_as_direct:
       dropout_p: 0.25
       bidirectional: true
   synthesizer:
-    name: ea587b76c95fecef01cfd16c7f5f289d-3
+    name: ea587b76c95fecef01cfd16c7f5f289d-0
   sound_quantizer:
-    name: f50650bb40e1346ed24011c2e41b7153-4
+    name: f50650bb40e1346ed24011c2e41b7153-0
   training:
     inverse_model_learning_rate: 0.0011
     direct_model_learning_rate: 0.001
@@ -53,9 +53,9 @@ gb2016,th2016:
       dropout_p: 0.17
       bidirectional: true
   synthesizer:
-    name: ea587b76c95fecef01cfd16c7f5f289d-3
+    name: ea587b76c95fecef01cfd16c7f5f289d-0
   sound_quantizer:
-    name: f50650bb40e1346ed24011c2e41b7153-4
+    name: f50650bb40e1346ed24011c2e41b7153-0
   training:
     inverse_model_learning_rate: 0.0017
     direct_model_learning_rate: 0.002
