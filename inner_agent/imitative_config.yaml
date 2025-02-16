@@ -1,0 +1,29 @@
+model:
+  overt_agent_path : "./out/imitative_agent1/5b950733c7176a040af476dff4755676-0/" # Train overt imitative agent and use it for the inner speech agent
+  direct_model:
+    hidden_layers: [256, 256, 256, 256]
+    activation: relu
+    batch_norm: true
+    dropout_p: 0.25
+  inverse_model:
+    num_layers: 2
+    hidden_size: 32
+    dropout_p: 0.25
+    bidirectional: true
+synthesizer:
+  name:  ea587b76c95fecef01cfd16c7f5f289d-0  #ea587b76c95fecef01cfd16c7f5f289d-1    #dn=pb2007-nd=2-hl=256,256,256,256-in=ema-out=cepstrum-0
+dataset:
+  names: [pb2007]
+  sound_type: cepstrum
+  datasplits_size: [64, 16, 20] # train/validation/test in percentage
+  batch_size: 8
+  num_workers: 6
+  shuffle_between_epochs: true
+training:
+  learning_rate: 0.001
+  max_epochs: 800 #50
+  patience: 100 #20
+  jerk_loss_weight: [0] # Jerk and velocity constraints are relaxed when learning inner speech
+  jerk_loss_ceil: [0]
+  vel_loss_weight: [0] 
+  vel_loss_ceil: [0] 
