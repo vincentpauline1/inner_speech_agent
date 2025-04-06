@@ -6,24 +6,27 @@ import numpy as np
 def plot_groups_metrics(groups_metrics, metrics_name, split_name="test"):
     """Plot training/validation metrics for multiple model groups.
     
+    Creates an organized grid visualization comparing metrics across model groups:
+    - Each row represents a different model group
+    - Each column shows a different metric (e.g. loss, accuracy)
+    - Within each plot, multiple lines show different model runs
+    - Final values are highlighted with markers
+    - Clear labels and consistent styling for easy interpretation
+    
     Args:
         groups_metrics (dict): Nested dictionary containing metrics for each group and model
         metrics_name (list): List of metric names to plot (e.g. ['loss', 'accuracy'])
         split_name (str, optional): Data split to plot ('train', 'val', 'test'). Defaults to "test"
-    
-    Creates a grid of plots with:
-    - One row per model group
-    - One column per metric
-    - Multiple lines per plot showing different model runs
-    - Markers highlighting final values
     """
     nb_groups = len(groups_metrics)
     nb_metrics = len(metrics_name)
-
     groups_name = sorted(groups_metrics.keys())
 
-    # Create figure with enough space for all subplots
-    plt.figure(figsize=(nb_metrics * 3 + 3, nb_groups * 3), dpi=100)
+    # Create figure with optimized dimensions and higher DPI for clarity
+    plt.figure(figsize=(nb_metrics * 5 + 3, nb_groups * 4.5), dpi=120)
+    
+    # Define consistent colors and styles
+    colors = plt.cm.tab10(np.linspace(0, 1, 10))
     
     for i_group, group_name in enumerate(groups_name):
         group_metrics = groups_metrics[group_name]
@@ -31,33 +34,66 @@ def plot_groups_metrics(groups_metrics, metrics_name, split_name="test"):
         for i_metric, metric_name in enumerate(metrics_name):
             ax = plt.subplot(nb_groups, nb_metrics, 1 + nb_metrics * i_group + i_metric)
             
-            # Add group name label on leftmost plot
+            # Add styled group name label
             if i_metric == 0:
                 ax.text(
-                    -0.3,
-                    0.5,
+                    -0.45, 0.5,
                     group_name,
                     verticalalignment="center",
                     horizontalalignment="right",
                     transform=ax.transAxes,
+                    fontsize=13,
+                    fontweight='bold'
                 )
-                
-            # Plot metric curves for each model in group
-            for metrics in group_metrics.values():
+            
+            # Plot metric curves with consistent styling
+            for idx, (model_name, metrics) in enumerate(group_metrics.items()):
                 metric_values = metrics[split_name][metric_name]
-                ax.set_title(f"{metric_name} over epochs")
-                ax.set_xlabel("Epoch")
-                ax.set_ylabel(metric_name)
-                ax.plot(metric_values, label=metric_name)
+                color = colors[idx % len(colors)]
                 
-                # Highlight final value
+                # Plot line with custom styling
+                line = ax.plot(metric_values, 
+                             label=model_name,
+                             color=color,
+                             linewidth=2,
+                             alpha=0.8)[0]
+                
+                # Add emphasized final value marker
                 last_epoch = len(metric_values) - 1
                 last_value = metric_values[-1]
-                ax.scatter(last_epoch, last_value, zorder=10)
+                ax.scatter(last_epoch, last_value,
+                          color=color,
+                          s=120,
+                          zorder=10,
+                          edgecolor='white',
+                          linewidth=1.5)
                 
-    plt.tight_layout()
+                # Annotate final value
+                ax.annotate(f'{last_value:.3f}',
+                          (last_epoch, last_value),
+                          xytext=(7, 7),
+                          textcoords='offset points',
+                          fontsize=10)
+            
+            # Style the subplot
+            ax.set_title(f"{metric_name.capitalize()} Over Epochs", 
+                        fontsize=14, 
+                        pad=15)
+            ax.set_xlabel("Epoch", fontsize=12)
+            ax.set_ylabel(metric_name.capitalize(), fontsize=12)
+            ax.grid(True, linestyle='--', alpha=0.7)
+            ax.tick_params(labelsize=10)
+            
+            # Add legend at the top of the first subplot in each row
+            if i_metric == 0:
+                ax.legend(bbox_to_anchor=(0, 1.25),
+                         loc='lower left',
+                         borderaxespad=0.,
+                         ncol=3,
+                         fontsize=11)
+            
+    plt.tight_layout(h_pad=2.5, w_pad=1.5)
     plt.show()
-
 
 def show_ema(ema, reference=None, dataset=None):
     """Interactive visualization of electromagnetic articulography (EMA) data.
