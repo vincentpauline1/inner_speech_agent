@@ -1,0 +1,2 @@
+$PHONE = _ | a | a~ | b | d | e | e^ | e~ | f | g | h | i | j | k | l | m | n | o | o^ | o~ | p | q | r | s | s^ | t | u | v | w | x | x^ | x~ | y | z | z^;
+( __ < $PHONE > __ )
